@@ -1,0 +1,167 @@
+#!/bin/bash
+# gmail-smtp-curl.driver - Gmail SMTP driver using curl
+
+#shellcheck disable=2154
+PS4='$( _0=$?; exec 2>/dev/null; realpath -- "${BASH_SOURCE[0]:-?}:${LINENO} ^$_0 ${FUNCNAME[0]:-?}()=>" ) '
+[[ -n "${DEBUGSH:-}" ]] && set -x
+set -euo pipefail
+
+scriptName="${scriptName:-"$(command readlink -f -- "$0")"}"
+# scriptDir not needed in this driver module
+
+die() {
+    builtin echo "ERROR($(basename "${scriptName}")): $*" >&2
+    builtin exit 1
+}
+
+{ # All functions except main and die must be nested within this block
+
+    # Driver interface: Check dependencies
+    driver_check_dependencies() {
+        if ! command -v curl >/dev/null 2>&1; then
+            echo "ERROR: curl not found (required for Gmail SMTP)" >&2
+            return 1
+        fi
+        return 0
+    }
+
+    # Driver interface: Initialize driver
+    driver_init() {
+        local credentials_file="${HOME}/.config/send-email/credentials"
+        
+        if [[ ! -f "$credentials_file" ]]; then
+            echo "ERROR: Credentials file not found: $credentials_file" >&2
+            return 1
+        fi
+        
+        # Source credentials
+        # shellcheck disable=SC1090
+        source "$credentials_file"
+        
+        if [[ -z "${GMAIL_USER:-}" ]]; then
+            echo "ERROR: GMAIL_USER not set in $credentials_file" >&2
+            return 1
+        fi
+        
+        if [[ -z "${GMAIL_APP_PASSWORD:-}" ]]; then
+            echo "ERROR: GMAIL_APP_PASSWORD not set in $credentials_file" >&2
+            return 1
+        fi
+        
+        return 0
+    }
+
+    # Driver interface: Send email
+    driver_send_email() {
+        # Expects these globals (set by parent script):
+        # shellcheck disable=SC2154  # Variables set by parent script
+        # - $email_from
+        # shellcheck disable=SC2154  # Variables set by parent script
+        # - $email_to
+        # - $email_subject
+        # shellcheck disable=SC2154  # Variables set by parent script
+        # - $email_body_file (temp file with formatted message)
+        
+        local credentials_file="${HOME}/.config/send-email/credentials"
+        # shellcheck disable=SC1090
+        source "$credentials_file"
+        
+        # Use curl to send via SMTP
+        local curl_output
+        local curl_exit
+        
+        # Capture both stdout and stderr
+        # shellcheck disable=SC2154  # email_from, email_to, email_body_file set by parent script
+        curl_output=$(curl -v \
+            --url "smtps://smtp.gmail.com:465" \
+            --ssl-reqd \
+            --mail-from "$email_from" \
+            --mail-rcpt "$email_to" \
+            --user "${GMAIL_USER}:${GMAIL_APP_PASSWORD}" \
+            --upload-file "$email_body_file" \
+            2>&1)
+        
+        curl_exit=$?
+        
+        # Handle curl exit codes
+        case $curl_exit in
+            0)
+                echo "✓ Email sent successfully to: $email_to"
+                return 0
+                ;;
+            67)
+                echo "ERROR: Authentication failed (curl exit code 67)" >&2
+                echo "" >&2
+                echo "Your Gmail App Password may be invalid or expired." >&2
+                echo "Re-run setup: cd ~/.local/bin/send-email && ./send-email-setup.sh" >&2
+                echo "" >&2
+                echo "Curl output:" >&2
+                echo "$curl_output" >&2
+                return 1
+                ;;
+            6)
+                echo "ERROR: Could not resolve host smtp.gmail.com (curl exit code 6)" >&2
+                echo "Check your network connection" >&2
+                echo "" >&2
+                echo "Curl output:" >&2
+                echo "$curl_output" >&2
+                return 1
+                ;;
+            7)
+                echo "ERROR: Failed to connect to smtp.gmail.com:465 (curl exit code 7)" >&2
+                echo "Check your network connection and firewall settings" >&2
+                echo "" >&2
+                echo "Curl output:" >&2
+                echo "$curl_output" >&2
+                return 1
+                ;;
+            *)
+                echo "ERROR: Failed to send email (curl exit code: $curl_exit)" >&2
+                echo "" >&2
+                echo "Curl output:" >&2
+                echo "$curl_output" >&2
+                return 1
+                ;;
+        esac
+    }
+
+    # Driver interface: Help text
+    driver_help() {
+        cat <<'EOF'
+Gmail SMTP Driver (gmail-smtp-curl)
+
+Sends email via Gmail's SMTP server using curl.
+
+REQUIREMENTS:
+  - Gmail account with 2FA enabled
+  - Gmail App Password (not your regular password)
+  - curl with SSL/TLS support (native to git-bash)
+
+SETUP:
+  1. Enable 2FA on your Gmail account
+  2. Generate App Password: https://myaccount.google.com/apppasswords
+  3. Run: cd ~/.local/bin/send-email && ./send-email-setup.sh
+  4. Enter your Gmail address and App Password when prompted
+
+CONFIGURATION:
+  Credentials stored in: ~/.config/send-email/credentials (mode 600)
+  Format:
+    GMAIL_USER=your-email@gmail.com
+    GMAIL_APP_PASSWORD=xxxx-xxxx-xxxx-xxxx
+
+TROUBLESHOOTING:
+  - Authentication failed (exit 67): App Password invalid/expired
+  - Connection failed: Check network, Gmail SMTP not blocked
+  - Rate limiting: Gmail may throttle if sending too frequently
+
+EOF
+    }
+
+} # End of function block
+
+# Allow sourcing without execution
+if [[ -z "${sourceMe:-}" ]]; then
+    echo "This is a driver module, source it from send-email.sh" >&2
+    exit 1
+fi
+command true

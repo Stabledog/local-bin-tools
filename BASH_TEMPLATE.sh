@@ -8,7 +8,7 @@ PS4='$( _0=$?; exec 2>/dev/null; realpath -- "${BASH_SOURCE[0]:-?}:${LINENO} ^$_
 # Shellcheck must pass.  Suppress violations that are hard to solve.
 
 # So that user can turn on debugging even if they don't control the command line:
-[[ -n "$DEBUGSH" ]] && set -x
+[[ -n "${DEBUGSH:-}" ]] && set -x
 
 set -euo pipefail  # Be strict about error handling
 
