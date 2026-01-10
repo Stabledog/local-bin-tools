@@ -222,7 +222,9 @@ resolve_address() {
     [[ -f "$addresses_file" ]] || die "Addresses file not found: $addresses_file"
     
     # Parse format: email alias1 alias2 alias3 ...
-    # Return email if alias matches, error if not found
+    # Return email if alias matches
+    # Abort if alias appears multiple times (duplicate detection)
+    # Error if not found
 }
 
 # List available aliases for error messages
@@ -420,11 +422,13 @@ command true
 **Purpose:** Interactive setup, config file creation, guided Gmail setup
 
 **Key features:**
-- Create `~/.config/send-email/` directory
-- Prompt for Gmail address
+- **Idempotent:** Check what exists, only do what's missing
+- **Status reporting:** Show "address book: found" or "address book: creating..."
+- Create `~/.config/send-email/` directory if needed
+- Prompt for Gmail credentials only if credentials file missing
 - Explain App Password requirement with link
-- Create credentials file (chmod 600)
-- Create addresses file with example entries
+- Create credentials file (chmod 600) if missing
+- Create addresses file with example entries if missing
 - Offer test send
 - **NOT symlinked to repo root** (user runs from subdir)
 
@@ -457,11 +461,26 @@ main() {
     
     # Create config directory
     local config_dir="${HOME}/.config/send-email"
-    mkdir -p "$config_dir"
+    if [[ -d "$config_dir" ]]; then
+        echo "Config directory: found"
+    else
+        echo "Config directory: creating..."
+        mkdir -p "$config_dir"
+        echo "Config directory: created"
+    fi
+    echo ""
     
-    # Setup credentials
-    echo "Step 1: Gmail Configuration"
-    echo "---------------------------"
+    # Setup credentials (skip if exists)
+    local credentials_file="${config_dir}/credentials"
+    if [[ -f "$credentials_file" ]]; then
+        echo "Credentials file: found"
+        echo "  (Skipping Gmail configuration)"
+        echo ""
+    else
+        echo "Credentials file: not found"
+        echo ""
+        echo "Step 1: Gmail Configuration"
+        echo "---------------------------"
     echo ""
     echo "You need a Gmail App Password (not your regular password)."
     echo ""
@@ -501,16 +520,32 @@ EOF
     chmod 600 "$credentials_file"
     echo "✓ Credentials saved to: $credentials_file (mode 600)"
     echo ""
+    fi
     
-    # Setup addresses file
+    # Setup addresses file (skip if exists)
     echo "Step 2: Address Whitelist"
     echo "-------------------------"
     echo ""
-    echo "Creating address whitelist with example entries."
-    echo "Edit ~/.config/send-email/addresses to add your contacts."
-    echo ""
+    if [[ -f "$addresses_file" ]]; then
+        echo "Address book: found"
+        echo "  (Skipping address whitelist creation)"
+        echo ""
+    else
+        echo "Address book: not found"
+        echo ""
+        echo "Creating address whitelist with example entries."
+        echo "Edit ~/.config/send-email/addresses to add your contacts."
+        echo ""
     
     local addresses_file="${config_dir}/addresses"
+    
+    # Get gmail_user from credentials if not set
+    if [[ -z "${gmail_user:-}" ]] && [[ -f "$credentials_file" ]]; then
+        # shellcheck disable=SC1090
+        source "$credentials_file"
+        gmail_user="${GMAIL_USER:-}"
+    fi
+    
     cat > "$addresses_file" <<EOF
 # Email address whitelist with aliases
 # Format: email_address alias1 alias2 alias3 ...
@@ -521,13 +556,18 @@ EOF
 # boss@company.com boss manager
 # team@example.com team devs
 
-$gmail_user self me myself
+${gmail_user:-user@gmail.com} self me myself
 EOF
     
     echo "✓ Address file created: $addresses_file"
     echo ""
-    echo "Your email ($gmail_user) added with aliases: self, me, myself"
+    if [[ -n "${gmail_user:-}" ]]; then
+        echo "Your email ($gmail_user) added with aliases: self, me, myself"
+    else
+        echo "Example entry added (edit to add your email)"
+    fi
     echo ""
+    fi
     
     # Offer test send
     echo "Step 3: Test Email (Optional)"
@@ -825,11 +865,13 @@ shellcheck send-email.sh send-email-core.sh send-email-setup.sh drivers/*.driver
    - Run `send-email.sh` without setup → should show setup instruction
    - Run `./send-email-setup.sh` → should complete successfully
    - Send test email → should receive email
+   - Run `./send-email-setup.sh` again → should detect existing files and skip appropriately
 
 2. **Address resolution:**
    - Valid alias → should resolve correctly
    - Invalid alias → should show available aliases
    - Multiple aliases for same email → any should work
+   - Duplicate alias (same alias for different emails) → should abort with error
 
 3. **Email sending:**
    - Body as string → should send correctly
