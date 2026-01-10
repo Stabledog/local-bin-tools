@@ -20,7 +20,6 @@ This directory contains personal command-line tools (origin: https:/github.com/S
 - **External dependencies:** Scripts that depend on external programs must test for those programs at startup and abort with a clear, actionable error if missing. Do not perform automatic installs at runtime. If installation instructions are unambiguous across target environments, include short setup steps in the tool README or the error message.
 
 - **Testing:** Validate scripts to a practical extent before declaring them done. Recommended approaches:
-	- provide a `--dry-run` or `--noop` mode for main flows
 	- add lightweight unit tests for exported functions (for shell, `bats` or simple shell harnesses; for Python, `pytest`)
 	- use `sourceMe` to load internal helpers during tests or interactive debugging
 
@@ -28,8 +27,9 @@ This directory contains personal command-line tools (origin: https:/github.com/S
 
 - **Automation / CI (recommended):** Add a simple CI job or `Makefile` targets that run `shellcheck`, `ruff`, and basic tests for changed tools to prevent regressions.
 
-- **Documentation:** Each tool should include a short README in its tool subdir describing purpose, usage, prerequisites, and any required setup steps.
+- **Documentation:** 
 
-Notes:
-- The `sourceMe` pattern used in `BASH_TEMPLATE.sh` is intentionally present so developers can `source` the file and call internal functions for interactive testing or reuse without executing `main()`.
+    - Each tool should include a short README in its tool subdir describing purpose, usage, prerequisites, and any required setup steps.
+    - Each tool should contain an AGENTS.md file which references the parent AGENTs.md (~/.local/bin/AGENTS.md), and then continues with tool-specific guidance for AI agents
+
 
