@@ -12,6 +12,7 @@ This directory contains personal command-line tools (origin: https:/github.com/S
 	- a `usage()` function and clear argument parsing
 	- a `main()` entrypoint
 	- `sourceMe` support so helper functions can be sourced for interactive use or unit testing without executing the full script
+	- **AI agents must read and follow `BASH-CODING-STANDARD.md`** which provides explicit structural rules, indentation requirements, and common pitfalls to avoid when creating or refactoring bash scripts
 
 - **Linting / static checks:**
 	- All shell scripts must be checked with `shellcheck` and fixed where practical. If `shellcheck` reports environment-specific or hard-to-resolve false positives, add targeted `shellcheck` suppressions and document the reasoning directly above the suppression.

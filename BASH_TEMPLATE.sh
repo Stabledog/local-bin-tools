@@ -5,13 +5,12 @@
 #  - read the comments for additional standard coding instructions and principles
 #  - run shellcheck after all changes, it must pass.  It is OK to suppress violations that are difficult to resolve otherwise.
 
-set -ue  # Always default to strict -ue
+set -euo pipefail  # Be strict about error handling
 
 # PS4 provides good diagnostics when -x is turned on
 #shellcheck disable=2154
 PS4='$( _0=$?; exec 2>/dev/null; realpath -- "${BASH_SOURCE[0]:-?}:${LINENO} ^$_0 ${FUNCNAME[0]:-?}()=>" ) '
 [[ -n "${DEBUGSH:-}" ]] && set -x # Allows the user to enable debugging output via environment
-set -euo pipefail  # Be strict about error handling
 
 scriptName="${scriptName:-"$(command readlink -f -- "$0")"}"
 # (if needed) scriptDir="$(command dirname -- "${scriptName}")"
