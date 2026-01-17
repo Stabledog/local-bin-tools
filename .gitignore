@@ -43,11 +43,7 @@ parse_ps1_host_suffix.sh
 ps1-foo
 ps1-foo-version.sh
 quash.sh
-realpath.sh
 setup-github-auth-wsl.sh
-shellkit-bootstrap.sh
-shellkit-loader.bashrc
-shellkit-loader.sh
 shellkit-pm
 shellkit-pm-help.sh
 shellkit-pm-version.sh
@@ -63,3 +59,4 @@ taskrc-kit-version.sh
 tree-walker.sh
 vi-mode.sh
 vipe.sh
+shellkit-bootstrap.sh
